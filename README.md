@@ -112,4 +112,4 @@ If you find this project helpful in your research, welcome to cite the paper.
 
 Thanks to Antyanta Bangunharcana for opening source of his excellent work [Correlate-and-Excite](https://github.com/antabangun/coex).
 
-# Edits by Akilax0
+# Edits by Akilax0 from Ampere
