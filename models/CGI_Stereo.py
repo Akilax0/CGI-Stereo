@@ -74,6 +74,9 @@ class FeatUp(SubModule):
         x4, x8, x16, x32 = featL
 
         y4, y8, y16, y32 = featR
+
+        # distill here for upsample layers
+
         x16 = self.deconv32_16(x32, x16)
         y16 = self.deconv32_16(y32, y16)
         
@@ -157,24 +160,31 @@ class hourglass_fusion(nn.Module):
         self.CGF_8 = Context_Geometry_Fusion(in_channels*2, 64)
 
     def forward(self, x, imgs):
+        # print("hourglass inputs x(volume), imgs(feature_left) ",x.size(),imgs[0].size(),imgs[1].size(),imgs[2].size(),imgs[3].size())
         conv1 = self.conv1(x)
+        # print("hour conv1:", conv1.size())
         conv2 = self.conv2(conv1)
+        # print("hour conv2:", conv2.size())
         conv3 = self.conv3(conv2)
+        # print("hour conv3:", conv3.size())
 
         conv3 = self.CGF_32(conv3, imgs[3])
         conv3_up = self.conv3_up(conv3)
+        # print("CGF and up1",conv3_up.size())
 
         conv2 = torch.cat((conv3_up, conv2), dim=1)
         conv2 = self.agg_0(conv2)
 
         conv2 = self.CGF_16(conv2, imgs[2])
         conv2_up = self.conv2_up(conv2)
+        # print("CGF and up2",conv2_up.size())
 
         conv1 = torch.cat((conv2_up, conv1), dim=1)
         conv1 = self.agg_1(conv1)
 
         conv1 = self.CGF_8(conv1, imgs[1])
         conv = self.conv1_up(conv1)
+        # print("CGF and up3",conv.size())
 
         return conv
 
@@ -216,26 +226,48 @@ class CGI_Stereo(nn.Module):
         self.corr_stem = BasicConv(1, 8, is_3d=True, kernel_size=3, stride=1, padding=1)
 
     def forward(self, left, right):
+
+        print("input to left feature: ",left.size())
         features_left = self.feature(left)
         features_right = self.feature(right)
+
+        # print("feature_left",features_left[0].size(),features_left[1].size(),features_left[2].size(),features_left[3].size())
+
         features_left, features_right = self.feature_up(features_left, features_right)
+        print("feature_left_up",features_left[0].size(),features_left[1].size(),features_left[2].size(),features_left[3].size())
+
         stem_2x = self.stem_2(left)
+        # print("stem_2x", stem_2x.size())
         stem_4x = self.stem_4(stem_2x)
+        # print("stem_4x", stem_4x.size())
+
         stem_2y = self.stem_2(right)
         stem_4y = self.stem_4(stem_2y)
 
         features_left[0] = torch.cat((features_left[0], stem_4x), 1)
+        # print("cat feature left",features_left[0].size(),features_left[1].size(),features_left[2].size(),features_left[3].size())
+
         features_right[0] = torch.cat((features_right[0], stem_4y), 1)
 
 
         match_left = self.desc(self.conv(features_left[0]))
+        # print("match_left",match_left.size())
+
         match_right = self.desc(self.conv(features_right[0]))
 
         corr_volume = build_norm_correlation_volume(match_left, match_right, self.maxdisp//4)
+        # print("corr volume init build",corr_volume.size())
+
         corr_volume = self.corr_stem(corr_volume)
+        # print("corr volume stem ",corr_volume.size())
+
         feat_volume = self.semantic(features_left[0]).unsqueeze(2)
+        # print("feature volume ",feat_volume.size())
+
         volume = self.agg(feat_volume * corr_volume)
+        # print(" feat * corr ",volume.size())
         cost = self.hourglass_fusion(volume, features_left)
+        # print("cost affter hourglass ",cost.size())
 
         xspx = self.spx_4(features_left[0])
         xspx = self.spx_2(xspx, stem_2x)
@@ -243,7 +275,9 @@ class CGI_Stereo(nn.Module):
         spx_pred = F.softmax(spx_pred, 1)
 
         disp_samples = torch.arange(0, self.maxdisp//4, dtype=cost.dtype, device=cost.device)
+        # print("disp samples",disp_samples)
         disp_samples = disp_samples.view(1, self.maxdisp//4, 1, 1).repeat(cost.shape[0],1,cost.shape[3],cost.shape[4])
+        # print("disp samples change view",disp_samples[0][0].size())
         pred = regression_topk(cost.squeeze(1), disp_samples, 2)
         pred_up = context_upsample(pred, spx_pred)
 

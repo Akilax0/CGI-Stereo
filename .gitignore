@@ -1,4 +1,5 @@
 pretrained_models/
 test/
 checkpoints/
+debug/
 __pycache__

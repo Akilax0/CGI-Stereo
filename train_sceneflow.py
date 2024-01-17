@@ -21,7 +21,7 @@ import gc
 
 cudnn.benchmark = True
 #os.environ['CUDA_VISIBLE_DEVICES'] = '0,1'
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+os.environ['CUDA_VISIBLE_DEVICES'] = '1'
 
 parser = argparse.ArgumentParser(description='Accurate and Real-Time Stereo Matching via Context and Geometry Interaction (CGI-Stereo)')
 parser.add_argument('--model', default='CGI_Stereo', help='select a model structure', choices=__models__.keys())
@@ -107,6 +107,8 @@ def train():
 
         # training
         for batch_idx, sample in enumerate(TrainImgLoader):
+            print("epoch_idx, batch_idx, sample_left , sample_right,sample_disparity",epoch_idx,batch_idx,sample["left"].size(),sample["right"].size(),sample["disparity"].size())
+
             global_step = len(TrainImgLoader) * epoch_idx + batch_idx
             start_time = time.time()
             do_summary = global_step % args.summary_freq == 0

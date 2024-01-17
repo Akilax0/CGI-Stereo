@@ -219,12 +219,24 @@ def context_upsample(depth_low, up_weights):
 
 def regression_topk(cost, disparity_samples, k):
 
+    # print("cost, disparity_samples, k", cost,disparity_samples.size(),k)
     _, ind = cost.sort(1, True)
     pool_ind = ind[:, :k]
+    # print("pool index", pool_ind.size())
+    
     cost = torch.gather(cost, 1, pool_ind)
+    # print("gathered cost ", cost)
+    
     prob = F.softmax(cost, 1)
+    # print("prob",prob)
+    
+
     disparity_samples = torch.gather(disparity_samples, 1, pool_ind)    
+    # print("disparity samples",disparity_samples)
+
     pred = torch.sum(disparity_samples * prob, dim=1, keepdim=True)
+    # print("before sum", disparity_samples * prob)
+    # print("final prediction",pred)
     return pred
     
 
